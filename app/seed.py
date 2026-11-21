@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from app.db import SCHEMA, get_db, init_schema
 
-SCHEMA_VERSION = "lineage-v1"
+SCHEMA_VERSION = "lineage-v2"
 
 
 def _schema_compatible(conn) -> bool:
@@ -27,6 +27,10 @@ def seed_if_needed(db_path: str | None = None) -> dict:
         ).fetchone()
         if not _schema_compatible(conn) or (ver and ver["value"] != SCHEMA_VERSION):
             for table in (
+                "fate_archive_items",
+                "fate_archives",
+                "fate_vouchers",
+                "edge_fates",
                 "notify_logs",
                 "impact_hits",
                 "impact_jobs",
@@ -104,6 +108,10 @@ def reset_seed(db_path: str | None = None) -> None:
     init_schema(db_path)
     with get_db(db_path) as conn:
         for table in (
+            "fate_archive_items",
+            "fate_archives",
+            "fate_vouchers",
+            "edge_fates",
             "notify_logs",
             "impact_hits",
             "impact_jobs",

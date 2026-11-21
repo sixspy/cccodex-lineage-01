@@ -1,10 +1,21 @@
 import { api } from '../api.js';
 
+function esc(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+  }[c]));
+}
+
 export async function renderNodes(view, setMsg) {
   const j = await api('/api/nodes');
+  const gate = j.gate || {};
   view.innerHTML = `
     <section class="card">
       <h2>节点目录</h2>
+      <p class="muted">目录指纹 ${esc(j.catalog_fingerprint || '')}
+        · 命运口径 <span class="tag fate">${esc(j.fate_mode || '未定')}</span>
+        ${gate.ok ? '<span class="tag ok">与闭包清单同源</span>' : `<span class="tag warn">漂移 ${(gate.issues || []).length} 处</span>`}</p>
+      ${gate.ok ? '' : `<p class="err">${(gate.issues || []).map(esc).join('<br>')}</p>`}
       <div class="row">
         <label>编号<input id="code" value="N-NEW-1" /></label>
         <label>表名<input id="table" value="dwd_sample" /></label>
@@ -15,11 +26,11 @@ export async function renderNodes(view, setMsg) {
     </section>
     <section class="wall" style="margin-top:1rem">
       ${(j.items || []).map((n) => `<article class="card">
-        <h3>${n.node_code}</h3>
-        <span class="tag">${n.status}</span>
-        <span class="tag">${n.layer}</span>
-        <p>${n.table_name}</p>
-        <p class="muted">上游 ${n.upstream_count} · 下游 ${n.downstream_count} · ${n.owner_team}</p>
+        <h3>${esc(n.node_code)}</h3>
+        <span class="tag">${esc(n.status)}</span>
+        <span class="tag">${esc(n.layer)}</span>
+        <p>${esc(n.table_name)}</p>
+        <p class="muted">上游 ${n.upstream_count} · 下游 ${n.downstream_count} · ${esc(n.owner_team)}</p>
         <div class="row">
           <button data-act="${n.id}" type="button">启用</button>
           <button data-ret="${n.id}" type="button">停用</button>

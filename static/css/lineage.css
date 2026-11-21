@@ -48,3 +48,9 @@ input, select {
 }
 h2,h3 { margin: 0 0 .5rem; }
 pre { white-space: pre-wrap; font-size: .8rem; }
+
+.tag.ok { border-color: #3f7a5a; color: #a8e6c1; background: #16301f; }
+.tag.warn { border-color: #a3602a; color: #ffcf9a; background: #2e2013; }
+.tag.fate { border-color: var(--accent); color: #ffe9a8; background: #3a2e0f; }
+.row.tight { gap: .3rem; }
+button[disabled] { opacity: .5; cursor: not-allowed; }

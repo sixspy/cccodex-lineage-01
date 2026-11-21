@@ -8,9 +8,11 @@ from app.config import Config
 from app.seed import seed_if_needed
 from app.services import coverage as coverage_svc
 from app.services import edges as edges_svc
+from app.services import fate as fate_svc
 from app.services import impact as impact_svc
 from app.services import nodes as nodes_svc
 from app.services import notify as notify_svc
+from app.services import orchestration as orchestration_svc
 from app.services import settings as settings_svc
 from app.services.errors import ServiceError
 
@@ -139,7 +141,15 @@ def create_app() -> Bottle:
     def api_nodes_list():
         _require_user()
         layer = request.query.get("layer") or None
-        return _json({"items": nodes_svc.list_nodes(layer)})
+        info = fate_svc.status()
+        return _json(
+            {
+                "items": nodes_svc.list_nodes(layer),
+                "catalog_fingerprint": info["catalog_fingerprint"],
+                "fate_mode": info["fate_mode"] or "未定",
+                "gate": info,
+            }
+        )
 
     @app.post("/api/nodes")
     @wrap
@@ -199,6 +209,31 @@ def create_app() -> Bottle:
         _require_user()
         return _json({"item": edges_svc.void_edge(edge_id)})
 
+    @app.post("/api/edges/<edge_id:int>/confirm")
+    @wrap
+    def api_edges_confirm(edge_id):
+        user = _require_user()
+        body = _read_json()
+        return _json(
+            fate_svc.confirm_edge(
+                edge_id,
+                str(body.get("fate_mode") or ""),
+                user,
+            )
+        )
+
+    @app.get("/api/fate/status")
+    @wrap
+    def api_fate_status():
+        _require_user()
+        return _json(fate_svc.status())
+
+    @app.get("/api/orchestration/preflight")
+    @wrap
+    def api_orchestration_preflight():
+        _require_user()
+        return _json(orchestration_svc.preflight())
+
     @app.get("/api/impact/jobs")
     @wrap
     def api_impact_jobs():
@@ -249,7 +284,12 @@ def create_app() -> Bottle:
     @wrap
     def api_settings_list():
         _require_user()
-        return _json({"items": settings_svc.list_settings()})
+        return _json(
+            {
+                "items": settings_svc.list_settings(),
+                "fate": settings_svc.fate_readonly(),
+            }
+        )
 
     @app.post("/api/settings")
     @wrap

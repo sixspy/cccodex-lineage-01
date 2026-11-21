@@ -1,7 +1,8 @@
-"""覆盖对账：节点与已发布边的孤儿/未覆盖统计。"""
+"""覆盖对账：节点与已发布边的孤儿/未覆盖统计，兼对命运同源。"""
 from __future__ import annotations
 
 from app.db import get_db
+from app.services import fate as fate_svc
 from app.services.errors import ServiceError
 
 
@@ -30,21 +31,29 @@ def run_coverage(db_path: str | None = None) -> dict:
         orphan = sum(1 for n in live_nodes if int(n["id"]) not in linked)
         # draft edges that share endpoints with published = uncovered drafts
         uncovered = sum(1 for e in edges if e["status"] == "草稿")
+        pinned = conn.execute("SELECT COUNT(*) AS c FROM edge_fates").fetchone()["c"]
+        gate = fate_svc.gate_status(conn)
+        drift = len(gate["issues"])
         summary = (
             f"在用节点 {len(live_nodes)}，已发布边 {len(published)}，"
-            f"孤儿节点 {orphan}，草稿边 {uncovered}"
+            f"孤儿节点 {orphan}，草稿边 {uncovered}，命运边 {pinned}"
         )
         if orphan:
             summary += "；存在未挂边节点须人工核对"
+        if drift:
+            summary += f"；命运同源漂移 {drift} 处，影响与入库编排已拦"
         cur = conn.execute(
             "INSERT INTO coverage_reports(summary, node_count, edge_count, "
-            "orphan_count, uncovered_edges) VALUES (?,?,?,?,?)",
+            "orphan_count, uncovered_edges, pinned_edges, fate_drift) "
+            "VALUES (?,?,?,?,?,?,?)",
             (
                 summary,
                 len(live_nodes),
                 len(published),
                 orphan,
                 uncovered,
+                int(pinned),
+                drift,
             ),
         )
         return dict(
@@ -57,8 +66,10 @@ def run_coverage(db_path: str | None = None) -> dict:
 def latest_chip(db_path: str | None = None) -> str:
     with get_db(db_path) as conn:
         row = conn.execute(
-            "SELECT orphan_count FROM coverage_reports ORDER BY id DESC LIMIT 1"
+            "SELECT orphan_count, fate_drift FROM coverage_reports ORDER BY id DESC LIMIT 1"
         ).fetchone()
         if not row:
             return "未对账"
+        if int(row["fate_drift"]) > 0:
+            return "命运漂移"
         return "有缺口" if int(row["orphan_count"]) > 0 else "已齐套"

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from app.db import get_db
+from app.services import fate as fate_svc
 from app.services.errors import ServiceError
 
 
@@ -15,7 +16,28 @@ def list_edges(db_path: str | None = None) -> list[dict]:
             "JOIN lineage_nodes d ON d.id=e.downstream_id "
             "ORDER BY e.id"
         ).fetchall()
-        return [dict(r) for r in rows]
+        fates = fate_svc.edge_fate_map(conn)
+        drift_codes = set(fate_svc.gate_status(conn)["drift_edges"])
+        items = []
+        for r in rows:
+            item = dict(r)
+            f = fates.get(int(r["id"]))
+            if f:
+                item["fate_mode"] = f["fate_mode"]
+                item["fate_node_count"] = int(f["node_count"])
+                item["fate_confirmed_at"] = f["confirmed_at"]
+                item["fate_confirmed_by"] = f["confirmed_by"]
+                item["fate_fingerprint"] = f["fingerprint"]
+                item["fate_synced"] = r["edge_code"] not in drift_codes
+            else:
+                item["fate_mode"] = ""
+                item["fate_node_count"] = 0
+                item["fate_confirmed_at"] = ""
+                item["fate_confirmed_by"] = ""
+                item["fate_fingerprint"] = ""
+                item["fate_synced"] = True
+            items.append(item)
+        return items
 
 
 def create_edge(
